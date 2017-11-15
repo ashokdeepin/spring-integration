@@ -13,7 +13,7 @@ development process.
 
 The separate https://github.com/spring-projects/spring-integration-java-dsl[Spring Integration Java DSL] project has now been merged into the core Spring Integration project.
 The `IntegrationComponentSpec` implementations for channel adapters and gateways are distributed to their specific modules.
-See <<spring-integration-endpoints>> for more information about Java DSL support for target protocol integration.
+See <<java-dsl>> for more information about Java DSL support.
 Also see the https://github.com/spring-projects/spring-integration/wiki/Spring-Integration-4.3-to-5.0-Migration-Guide#java-dsl[4.3 to 5.0 Migration Guide] for the required steps to move to Spring Integration 5.0.
 
 ==== Testing Support
@@ -95,6 +95,14 @@ The `ObjectToMapTransformer` can now be supplied with a customised `JsonObjectMa
 
 See <<aggregator-spel>> for more information.
 
+The `@GlobalChannelInterceptor` annotation and `<int:channel-interceptor>` now support negative patterns (via `!` prepending) for component names matching.
+
+See <<global-channel-configuration-interceptors>> for more information.
+
+A new `OnFailedToAcquireMutexEvent` is emitted now via `DefaultLeaderEventPublisher` by the `LockRegistryLeaderInitiator`, when candidate is failed to acquire the lock.
+
+See <<leadership-event-handling>> for more information.
+
 ==== Gateway Changes
 
 The gateway now correctly sets the `errorChannel` header when the gateway method has a `void` return type and an error channel is provided.
@@ -164,8 +172,10 @@ See <<files>> for more information.
 
 ==== (S)FTP Changes
 
-The inbound channel adapters now have a property `max-fetch-size` which is used to limit the number of files fetched during a poll when there are no files currently in the local directory.
+The Inbound Channel Adapters now have a property `max-fetch-size` which is used to limit the number of files fetched during a poll when there are no files currently in the local directory.
 They also are configured with a `FileSystemPersistentAcceptOnceFileListFilter` in the `local-filter` by default.
+
+You can also provide a custom `DirectoryScanner` implementation to Inbound Channel Adapters via the newly introduced `scanner` attribute.
 
 The regex and pattern filters can now be configured to always pass directories.
 This can be useful when using recursion in the outbound gateways.
@@ -178,7 +188,8 @@ The (S)FTP streaming inbound channel adapters now add remote file information in
 
 The FTP and SFTP outbound channel adapters, as well as `PUT` command of the outbound gateways, now support `InputStream` as `payload`, too.
 
-The inbound channel adapters now can build file tree locally and use a new `RecursiveDirectoryScanner` by default for local directory.
+The inbound channel adapters now can build file tree locally using a newly introduced `RecursiveDirectoryScanner`.
+See `scanner` option for injection.
 Also these adapters can now be switched to the `WatchService` instead.
 
 The `NLST` command has been added to the `AbstractRemoteFileOutboundGateway` to perform only list files names remote command.
@@ -261,6 +272,8 @@ The `RedisStoreWritingMessageHandler` is supplied now with additional String-bas
 The `zsetIncrementExpression` can now be configured on the `RedisStoreWritingMessageHandler`, as well.
 In addition this property has been changed from `true` to `false` since `INCR` option on `ZADD` Redis command is optional.
 
+The `RedisInboundChannelAdapter` can now be supplied with an `Executor` for executing Redis listener invokers.
+
 See <<redis>> for more information.
 
 ==== TCP Changes
@@ -272,3 +285,17 @@ You can now configure the TCP connection factories to support `PushbackInputStre
 A `ByteArrayElasticRawDeserializer` has been added without `maxMessageSize` control and buffer incoming data as needed.
 
 See <<ip>> for more information.
+
+==== Gemfire Changes
+
+The `GemfireMetadataStore` now implements `ListenableMetadataStore`, allowing users to listen to cache events by providing `MetadataStoreListener` instances to the store.
+
+See <<gemfire>> for more information.
+
+==== Jdbc Changes
+
+The `JdbcMessageChannelStore` now provides setter for the `ChannelMessageStorePreparedStatementSetter` allowing users to customize a message insertion in the store.
+
+The `ExpressionEvaluatingSqlParameterSourceFactory` now provides setter for the sqlParameterTypes allowing users to customize sql types of the parameters.
+
+See <<jdbc>> for more information.
