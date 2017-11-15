@@ -1,5 +1,5 @@
 /*
- * Copyright 2007-2016 the original author or authors.
+ * Copyright 2007-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.integration.redis.store;
 
 import java.util.Collection;
 
+import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.BoundValueOperations;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -35,13 +36,36 @@ import org.springframework.util.Assert;
  *
  * @author Oleg Zhurakousky
  * @author Gary Russell
+ * @author Artem Bilan
+ *
  * @since 2.1
  */
-public class RedisMessageStore extends AbstractKeyValueMessageStore {
+public class RedisMessageStore extends AbstractKeyValueMessageStore implements BeanClassLoaderAware {
 
 	private final RedisTemplate<Object, Object> redisTemplate;
 
+	private boolean valueSerializerSet;
+
+	/**
+	 * Construct {@link RedisMessageStore} based on the provided
+	 * {@link RedisConnectionFactory} and default empty prefix.
+	 * @param connectionFactory the RedisConnectionFactory to use
+	 */
 	public RedisMessageStore(RedisConnectionFactory connectionFactory) {
+		this(connectionFactory, "");
+	}
+
+	/**
+	 * Construct {@link RedisMessageStore} based on the provided
+	 * {@link RedisConnectionFactory} and prefix.
+	 * @param connectionFactory the RedisConnectionFactory to use
+	 * @param prefix the key prefix to use, allowing the same broker to be used for
+	 * multiple stores.
+	 * @since 4.3.12
+	 * @see AbstractKeyValueMessageStore#AbstractKeyValueMessageStore(String)
+	 */
+	public RedisMessageStore(RedisConnectionFactory connectionFactory, String prefix) {
+		super(prefix);
 		this.redisTemplate = new RedisTemplate<Object, Object>();
 		this.redisTemplate.setConnectionFactory(connectionFactory);
 		this.redisTemplate.setKeySerializer(new StringRedisSerializer());
@@ -49,9 +73,17 @@ public class RedisMessageStore extends AbstractKeyValueMessageStore {
 		this.redisTemplate.afterPropertiesSet();
 	}
 
+	@Override
+	public void setBeanClassLoader(ClassLoader classLoader) {
+		if (!this.valueSerializerSet) {
+			this.redisTemplate.setValueSerializer(new JdkSerializationRedisSerializer(classLoader));
+		}
+	}
+
 	public void setValueSerializer(RedisSerializer<?> valueSerializer) {
 		Assert.notNull(valueSerializer, "'valueSerializer' must not be null");
 		this.redisTemplate.setValueSerializer(valueSerializer);
+		this.valueSerializerSet = true;
 	}
 
 	@Override
@@ -93,13 +125,6 @@ public class RedisMessageStore extends AbstractKeyValueMessageStore {
 		}
 	}
 
-	private void rethrowAsIllegalArgumentException(SerializationException e) {
-		throw new IllegalArgumentException("If relying on the default RedisSerializer " +
-				"(JdkSerializationRedisSerializer) the Object must be Serializable. " +
-				"Either make it Serializable or provide your own implementation of " +
-				"RedisSerializer via 'setValueSerializer(..)'", e);
-	}
-
 	@Override
 	protected Object doRemove(Object id) {
 		Assert.notNull(id, "'id' must not be null");
@@ -110,10 +135,17 @@ public class RedisMessageStore extends AbstractKeyValueMessageStore {
 		return removedObject;
 	}
 
-
 	@Override
 	protected Collection<?> doListKeys(String keyPattern) {
 		Assert.hasText(keyPattern, "'keyPattern' must not be empty");
 		return this.redisTemplate.keys(keyPattern);
 	}
+
+	private void rethrowAsIllegalArgumentException(SerializationException e) {
+		throw new IllegalArgumentException("If relying on the default RedisSerializer " +
+				"(JdkSerializationRedisSerializer) the Object must be Serializable. " +
+				"Either make it Serializable or provide your own implementation of " +
+				"RedisSerializer via 'setValueSerializer(..)'", e);
+	}
+
 }

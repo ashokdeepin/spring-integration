@@ -53,7 +53,7 @@ Below is the complete configuration sample:
 [source,xml]
 ----
 <bean id="ftpClientFactory"
-    class="org.springframework.integration.ftp.client.DefaultFtpsClientFactory">
+    class="org.springframework.integration.ftp.session.DefaultFtpsSessionFactory">
     <property name="host" value="localhost"/>
     <property name="port" value="22"/>
     <property name="username" value="oleg"/>
@@ -240,6 +240,7 @@ The _FTP Inbound Channel Adapter_ is a special listener that will connect to the
     remote-file-separator="/"
     preserve-timestamp="true"
     local-filename-generator-expression="#this.toUpperCase() + '.a'"
+    scanner="myDirScanner"
     local-filter="myFilter"
     temporary-file-suffix=".writing"
     max-fetch-size="-1"
@@ -259,6 +260,7 @@ The inbound channel adapter first retrieves the file to a local directory and th
 Starting with _version 5.0_, you can now limit the number of files fetched from the FTP server when new file retrievals are needed.
 This can be beneficial when the target files are very large and/or when running in a clustered system with a persistent file list filter discussed below.
 Use `max-fetch-size` for this purpose; a negative value (default) means no limit and all matching files will be retrieved; see <<ftp-max-fetch>> for more information.
+Since _version 5.0_, you can also provide a custom `DirectoryScanner` implementation to the `inbound-channel-adapter` via the `scanner` attribute.
 
 Starting with _Spring Integration 3.0_, you can specify the `preserve-timestamp` attribute (default `false`); when `true`, the local file's modified timestamp will be set to the value retrieved from the server; otherwise it will be set to the current time.
 
@@ -408,7 +410,8 @@ This will work for any `ResettableFileListFilter`.
 
 Starting with _version 5.0_, the Inbound Channel Adapter can build sub-directories locally according the generated local file name.
 That can be a remote sub-path as well.
-To be able to read local directory recursively for modification according the hierarchy support, an internal `FileReadingMessageSource` now have been switched to use a new `RecursiveDirectoryScanner` based on the `Files.walk()` algorithm.
+To be able to read local directory recursively for modification according the hierarchy support, an internal `FileReadingMessageSource` now can be supplied with a new `RecursiveDirectoryScanner` based on the `Files.walk()` algorithm.
+See `AbstractInboundFileSynchronizingMessageSource.setScanner()` for more information.
 Also the `AbstractInboundFileSynchronizingMessageSource` can now be switched to the `WatchService` -based `DirectoryScanner` via `setUseWatchService()` option.
 It is also configured for all the `WatchEventType` s to react for any modifications in local directory.
 The reprocessing sample above is based on the build-in functionality of the `FileReadingMessageSource.WatchServiceDirectoryScanner` to perform `ResettableFileListFilter.remove()` when the file is deleted (`StandardWatchEventKinds.ENTRY_DELETE`) from the local directory.
@@ -718,7 +721,7 @@ public class FtpJavaApplication {
     @ServiceActivator(inputChannel = "ftpChannel")
     public MessageHandler handler() {
         FtpMessageHandler handler = new FtpMessageHandler(ftpSessionFactory());
-        handler.setRemoteDirectoryExpression(new LiteralExpression("remote-target-dir"));
+        handler.setRemoteDirectoryExpressionString("headers['remote-target-dir']");
         handler.setFileNameGenerator(new FileNameGenerator() {
 
             @Override
@@ -830,8 +833,9 @@ directories, which is achievable using the `FileInfo` objects.
 
 Starting with _version 4.3_, the `FtpSession` supports `null` for the `list()` and `listNames()` methods,
 therefore the `expression` attribute can be omitted.
-From Java perspective there are two new constructor without `expression` argument for convenience.
-The `null` for `LS` command is treated as an Client working directory according to the FTP protocol.
+For Java configuration, there are two constructors without an `expression` argument for convenience.
+`null` for `LS`, `NLST`, `PUT` and `MPUT` commands is treated as the Client working directory according to the FTP protocol.
+All other commands must be supplied with the `expression` to evaluate remote path against request message.
 The working directory can be set via the `FTPClient.changeWorkingDirectory()` function when you extend the `DefaultFtpSessionFactory` and implement `postProcessClientAfterConnect()` callback.
 
 *nlst*

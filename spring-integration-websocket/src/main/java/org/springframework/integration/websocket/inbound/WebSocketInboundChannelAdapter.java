@@ -61,6 +61,7 @@ import org.springframework.web.socket.messaging.SessionConnectedEvent;
 
 /**
  * @author Artem Bilan
+ *
  * @since 4.1
  */
 public class WebSocketInboundChannelAdapter extends MessageProducerSupport
@@ -68,7 +69,7 @@ public class WebSocketInboundChannelAdapter extends MessageProducerSupport
 
 	private static final byte[] EMPTY_PAYLOAD = new byte[0];
 
-	private final List<MessageConverter> defaultConverters = new ArrayList<MessageConverter>(3);
+	private final List<MessageConverter> defaultConverters = new ArrayList<>(3);
 
 	private ApplicationEventPublisher eventPublisher;
 
@@ -255,11 +256,14 @@ public class WebSocketInboundChannelAdapter extends MessageProducerSupport
 	@Override
 	protected void doStop() {
 		this.active = false;
+		if (this.webSocketContainer instanceof Lifecycle) {
+			((Lifecycle) this.webSocketContainer).stop();
+		}
 	}
 
 	private boolean isActive() {
 		if (!this.active) {
-			logger.warn("MessageProducer '" + this + " 'isn't started to accept WebSocket events.");
+			logger.warn("MessageProducer '" + this + "' isn't started to accept WebSocket events.");
 		}
 		return this.active;
 	}
